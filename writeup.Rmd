@@ -1,0 +1,116 @@
+---
+title: "Coursera - Practical Machine Learning - Course Project"
+author: "Komal Kukreja"
+date: "Sunday, October 25, 2015"
+output: html_document
+---
+
+
+#### Overview
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+
+#### Data Source
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: 
+http://groupware.les.inf.puc-rio.br/har. 
+
+#### Loading dependencies
+
+```{r results='hide', message=FALSE, warning=FALSE}
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+```
+
+#### Getting Data
+```{r message=FALSE, warning=FALSE}
+setwd("H:/Komal/Data Science Specialization/Module 8_Practical Machine Learning/Course Project")
+
+train_file <- "pml-training.csv" 
+test_file <- "pml-testing.csv"
+
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
+#              destfile = train_file)
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
+#              destfile = test_file)
+```
+#### Reading Data
+```{r message=FALSE, warning=FALSE}
+read_train <- read.csv(train_file, header=TRUE)
+read_test <- read.csv(test_file, header=TRUE)
+```
+#### Basic Exploratory Data Analyses
+```{r message=FALSE, warning=FALSE}
+str(read_train)
+```
+
+#### Cleaning Data
+I prepared a model containing variables having 'accel' in their name to predict variable classe. This gave accuracy of 95%. I modified the model by adding variables to it that had 'gyros' in their name. This gave an accuracy of 97%. I again modified it by adding variables having 'magnet' in their name. This gave an accuracy of 98%. I have finalised this model for prediction. Also, as the accuracy went on increasing, the out of sample error went on decreasing.
+
+```{r message=FALSE, warning=FALSE}
+# filtering variables 
+all_variables_train <- colnames(read_train)
+filter_variables_train <- colnames(read_train)[grep("accel|gyros|magnet|classe",all_variables_train)]
+filter_train_frame <- read_train[, filter_variables_train]
+# removing columns contaning NA values from training data
+filter_train_frame <- filter_train_frame[, colSums(is.na(filter_train_frame)) == 0] 
+read_test <- read_test[, colSums(is.na(read_test)) == 0] 
+```
+
+#### Model Fitting
+```{r message=FALSE, warning=FALSE}
+# Partitioning the above training dataset/frame into training and testing sets
+inTrain = createDataPartition(filter_train_frame$classe, p = 0.7, list=FALSE)
+training = filter_train_frame[ inTrain,]
+testing = filter_train_frame[-inTrain,]
+set.seed(1)
+fit <- randomForest(classe ~ ., data=training)
+```
+
+#### Prediction
+```{r message=FALSE, warning=FALSE}
+prediction <- predict(fit, testing, type="class")
+```
+
+#### Cross validation and out of sample error (OOB)
+```{r message=FALSE, warning=FALSE}
+print(fit)
+confusionMatrix(prediction, testing$classe)
+```
+
+#### Plots
+```{r message=FALSE, warning=FALSE}
+plot(fit, type='l', log='y',main='Random Forest Model Predicting classe')
+legend("topright", colnames(fit$err.rate),col=1:4,cex=0.8,fill=1:4)
+treePlot <- rpart(classe ~ ., data=training, method="class")
+prp(treePlot) 
+```
+
+#### Predicting for 20 problems for submission part:
+```{r message=FALSE, warning=FALSE}
+# removing columns contaning NA values from testing data
+read_test <- read_test[, colSums(is.na(read_test)) == 0] 
+problem_result <- predict(fit, read_test, type="class")
+print(problem_result)
+
+```
+
+```{r eval=FALSE, message=FALSE, warning=FALSE}
+# writing output files
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+# Executing above funciton
+pml_write_files(problem_result)
+```
